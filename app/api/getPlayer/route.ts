@@ -2,7 +2,6 @@ import { LeagueEntry } from '@/app/types';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-  // Extract query parameters in the App Router
   const { searchParams } = new URL(request.url);
   const gameName = searchParams.get('gameName');
   const tagLine = searchParams.get('tagLine');
@@ -19,7 +18,6 @@ export async function GET(request: Request) {
   try {
     const headers = { 'X-Riot-Token': API_KEY as string };
 
-    // --- HOP 1: Get PUUID ---
     const accountUrl = `https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${gameName}/${tagLine}`;
     const accountRes = await fetch(accountUrl, { headers });
 
@@ -33,7 +31,6 @@ export async function GET(request: Request) {
     const accountData = await accountRes.json();
     const puuid = accountData.puuid;
 
-    // --- HOPS 2 & 3: Parallel Fetching ---
     const platform = 'eun1';
     const [summonerRes, leagueRes] = await Promise.all([
       fetch(

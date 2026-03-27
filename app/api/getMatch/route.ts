@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   try {
     const headers = { 'X-Riot-Token': API_KEY as string };
-    const platform = 'eun1'; // Using your Svelte platform
+    const platform = 'eun1';
 
     // 1. Fetch the live game data
     const matchRes = await fetch(

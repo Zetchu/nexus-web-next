@@ -1,19 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation'; // Updated hooks
+import { useRouter, useParams } from 'next/navigation';
 import { SummonerData } from '@/app/types';
 
 export default function SummonerStats() {
   const router = useRouter();
-  const params = useParams(); // App router handles dynamic URLs this way
+  const params = useParams();
   const id = params.id as string;
 
   const [summoner, setSummoner] = useState<SummonerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Fallback for UI before data loads
   const gameName = id ? decodeURIComponent(id).split('-')[0] : 'Player';
   const tagLine = id ? decodeURIComponent(id).split('-')[1] : 'NA1';
 

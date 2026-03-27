@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { LivePlayerCard } from '../../../components/LivePlayerCard';
+import { BanList } from '../../../components/BanList';
 
 export default function LiveMatch() {
   const router = useRouter();
@@ -24,11 +26,7 @@ export default function LiveMatch() {
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || 'Failed to fetch match');
-
-        // Handle the 404 scenario gracefully
-        if (data.isLive === false) {
-          throw new Error(data.message);
-        }
+        if (data.isLive === false) throw new Error(data.message);
 
         setMatch(data);
       } catch (err: any) {
@@ -41,7 +39,6 @@ export default function LiveMatch() {
     fetchLiveMatch();
   }, [puuid]);
 
-  // Loading State
   if (loading) {
     return (
       <div className='min-h-screen bg-surface flex flex-col items-center justify-center gap-4'>
@@ -53,7 +50,6 @@ export default function LiveMatch() {
     );
   }
 
-  // Not in Game / Error State
   if (error || !match) {
     return (
       <div className='min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center'>
@@ -74,25 +70,25 @@ export default function LiveMatch() {
     );
   }
 
-  // Filter players into their teams (100 = Blue, 200 = Red)
   const blueTeam = match.participants.filter((p: any) => p.teamId === 100);
   const redTeam = match.participants.filter((p: any) => p.teamId === 200);
 
-  // Filter Bans
-  const blueBans =
+  // 2. Map the ban objects into simple arrays of strings for our BanList component
+  const blueBanNames = (
     match.bannedChampions?.filter(
       (b: any) => b.teamId === 100 && b.championName,
-    ) || [];
-  const redBans =
+    ) || []
+  ).map((b: any) => b.championName);
+  const redBanNames = (
     match.bannedChampions?.filter(
       (b: any) => b.teamId === 200 && b.championName,
-    ) || [];
+    ) || []
+  ).map((b: any) => b.championName);
 
   const gameMinutes = Math.floor(match.gameLength / 60);
 
   return (
     <div className='min-h-screen bg-surface p-6 font-body'>
-      {/* Header Navigation */}
       <nav className='max-w-6xl mx-auto mb-8 mt-4 flex justify-between items-center'>
         <button
           onClick={() => router.back()}
@@ -111,47 +107,13 @@ export default function LiveMatch() {
       </nav>
 
       <main className='max-w-6xl mx-auto'>
-        {/* --- THE BAN ROW --- */}
-        {(blueBans.length > 0 || redBans.length > 0) && (
-          <div className='flex justify-between items-center bg-surface-low rounded-xl p-4 mb-8 border border-outline-variant/20 shadow-ambient'>
-            <div className='flex gap-2'>
-              {blueBans.map((ban: any, idx: number) => (
-                <div
-                  key={`b-${idx}`}
-                  className='relative w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden grayscale opacity-70 border border-blue-900/50'
-                >
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${ban.championName}.png`}
-                    alt='ban'
-                  />
-                  <div className='absolute inset-0 bg-red-500/20'></div>
-                  <div className='absolute top-1/2 left-0 w-full h-0.5 bg-red-500 -rotate-45 transform -translate-y-1/2'></div>
-                </div>
-              ))}
-            </div>
-            <p className='text-xs font-display text-on-surface-variant uppercase tracking-widest px-4'>
-              Bans
-            </p>
-            <div className='flex gap-2'>
-              {redBans.map((ban: any, idx: number) => (
-                <div
-                  key={`r-${idx}`}
-                  className='relative w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden grayscale opacity-70 border border-red-900/50'
-                >
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${ban.championName}.png`}
-                    alt='ban'
-                  />
-                  <div className='absolute inset-0 bg-red-500/20'></div>
-                  <div className='absolute top-1/2 left-0 w-full h-0.5 bg-red-500 -rotate-45 transform -translate-y-1/2'></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 3. The new BanList Component */}
+        <BanList
+          blueBans={blueBanNames}
+          redBans={redBanNames}
+        />
 
-        {/* --- THE ARENA BOARD --- */}
-        <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8'>
           {/* BLUE TEAM */}
           <section>
             <div className='mb-4 border-b border-blue-500/30 pb-2'>
@@ -161,65 +123,18 @@ export default function LiveMatch() {
             </div>
             <div className='flex flex-col gap-3'>
               {blueTeam.map((player: any, idx: number) => (
-                <div
-                  key={idx}
-                  className='bg-surface-low border border-blue-900/30 p-3 rounded-xl flex items-center gap-3'
-                >
-                  {/* Champion Icon */}
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${player.championName}.png`}
-                    alt={player.championName}
-                    className='w-12 h-12 rounded-lg object-cover bg-surface-lowest'
-                  />
-
-                  {/* Spells & Runes Block */}
-                  <div className='flex gap-1'>
-                    <div className='flex flex-col gap-1'>
-                      {player.spell1Name && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${player.spell1Name}.png`}
-                          className='w-5 h-5 rounded'
-                          alt='spell1'
-                        />
-                      )}
-                      {player.spell2Name && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${player.spell2Name}.png`}
-                          className='w-5 h-5 rounded'
-                          alt='spell2'
-                        />
-                      )}
-                    </div>
-                    <div className='flex flex-col gap-1 bg-surface-lowest rounded-md p-0.5'>
-                      {player.primaryRuneIcon && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/img/${player.primaryRuneIcon}`}
-                          className='w-5 h-5 rounded-full'
-                          alt='rune1'
-                        />
-                      )}
-                      {player.secondaryRuneIcon && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/img/${player.secondaryRuneIcon}`}
-                          className='w-4 h-4 rounded-full mx-auto opacity-80'
-                          alt='rune2'
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Player Info */}
-                  <div className='ml-2'>
-                    <p className='text-on-surface font-bold text-sm truncate max-w-[140px]'>
-                      {player.riotId
-                        ? `${player.riotId.split('#')[0]}`
-                        : player.summonerName}
-                    </p>
-                    <p className='text-on-surface-variant text-xs'>
-                      {player.championName}
-                    </p>
-                  </div>
-                </div>
+                // 4. The new LivePlayerCard component
+                <LivePlayerCard
+                  key={`blue-${idx}`}
+                  championName={player.championName}
+                  summonerName={player.summonerName}
+                  riotId={player.riotId}
+                  spell1Name={player.spell1Name}
+                  spell2Name={player.spell2Name}
+                  primaryRuneIcon={player.primaryRuneIcon}
+                  secondaryRuneIcon={player.secondaryRuneIcon}
+                  isRedTeam={false}
+                />
               ))}
             </div>
           </section>
@@ -233,65 +148,18 @@ export default function LiveMatch() {
             </div>
             <div className='flex flex-col gap-3'>
               {redTeam.map((player: any, idx: number) => (
-                <div
-                  key={idx}
-                  className='bg-surface-low border border-red-900/30 p-3 rounded-xl flex items-center lg:flex-row-reverse lg:text-right gap-3'
-                >
-                  {/* Champion Icon */}
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${player.championName}.png`}
-                    alt={player.championName}
-                    className='w-12 h-12 rounded-lg object-cover bg-surface-lowest'
-                  />
-
-                  {/* Spells & Runes Block */}
-                  <div className='flex gap-1'>
-                    <div className='flex flex-col gap-1'>
-                      {player.spell1Name && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${player.spell1Name}.png`}
-                          className='w-5 h-5 rounded'
-                          alt='spell1'
-                        />
-                      )}
-                      {player.spell2Name && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${player.spell2Name}.png`}
-                          className='w-5 h-5 rounded'
-                          alt='spell2'
-                        />
-                      )}
-                    </div>
-                    <div className='flex flex-col gap-1 bg-surface-lowest rounded-md p-0.5'>
-                      {player.primaryRuneIcon && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/img/${player.primaryRuneIcon}`}
-                          className='w-5 h-5 rounded-full'
-                          alt='rune1'
-                        />
-                      )}
-                      {player.secondaryRuneIcon && (
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/img/${player.secondaryRuneIcon}`}
-                          className='w-4 h-4 rounded-full mx-auto opacity-80'
-                          alt='rune2'
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Player Info */}
-                  <div className='mr-2'>
-                    <p className='text-on-surface font-bold text-sm truncate max-w-[140px]'>
-                      {player.riotId
-                        ? `${player.riotId.split('#')[0]}`
-                        : player.summonerName}
-                    </p>
-                    <p className='text-on-surface-variant text-xs'>
-                      {player.championName}
-                    </p>
-                  </div>
-                </div>
+                // 5. The new LivePlayerCard component (isRedTeam = true)
+                <LivePlayerCard
+                  key={`red-${idx}`}
+                  championName={player.championName}
+                  summonerName={player.summonerName}
+                  riotId={player.riotId}
+                  spell1Name={player.spell1Name}
+                  spell2Name={player.spell2Name}
+                  primaryRuneIcon={player.primaryRuneIcon}
+                  secondaryRuneIcon={player.secondaryRuneIcon}
+                  isRedTeam={true}
+                />
               ))}
             </div>
           </section>
