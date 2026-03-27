@@ -30,42 +30,39 @@ export default function Home() {
   };
 
   return (
-    <div className='min-h-screen bg-surface flex flex-col items-center justify-center p-6 selection:bg-primary/30'>
-      <div className='w-full max-w-md bg-surface-low border border-outline-variant/20 rounded-2xl p-8 shadow-ambient transition-all'>
-        <div className='text-center mb-8'>
-          <h1 className='text-3xl font-display font-bold tracking-tight mb-2'>
-            <span className='bg-kinetic-gradient text-transparent bg-clip-text'>
+    <div className="bg-surface selection:bg-primary/30 flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="bg-surface-low border-outline-variant/20 shadow-ambient w-full max-w-md rounded-2xl border p-8 transition-all">
+        <div className="mb-8 text-center">
+          <h1 className="font-display mb-2 text-3xl font-bold tracking-tight">
+            <span className="bg-kinetic-gradient bg-clip-text text-transparent">
               Nexus Tracker
             </span>
           </h1>
-          <p className='text-on-surface-variant text-sm font-body'>
+          <p className="text-on-surface-variant font-body text-sm">
             Enter a Riot ID to check live match status.
           </p>
         </div>
 
-        <form
-          onSubmit={handleSearch}
-          className='flex flex-col gap-4'
-        >
-          <div className='relative'>
+        <form onSubmit={handleSearch} className="flex flex-col gap-4">
+          <div className="relative">
             <input
-              type='text'
+              type="text"
               value={riotId}
               onChange={(e) => setRiotId(e.target.value)}
-              placeholder='Faker#KR1'
-              className='w-full bg-surface-lowest border border-outline-variant/30 rounded-xl px-5 py-4 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body text-lg'
+              placeholder="Faker#KR1"
+              className="bg-surface-lowest border-outline-variant/30 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-primary font-body w-full rounded-xl border px-5 py-4 text-lg transition-all outline-none focus:ring-1"
             />
           </div>
 
           {error && (
-            <p className='text-error text-sm text-center font-medium animate-pulse'>
+            <p className="text-error animate-pulse text-center text-sm font-medium">
               {error}
             </p>
           )}
 
           <button
-            type='submit'
-            className='w-full mt-2 bg-primary text-on-primary-fixed font-bold text-lg py-4 rounded-xl hover:bg-primary-container hover:shadow-glow-victory focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface outline-none transition-all duration-300'
+            type="submit"
+            className="bg-primary text-on-primary-fixed hover:bg-primary-container hover:shadow-glow-victory focus:ring-primary focus:ring-offset-surface mt-2 w-full rounded-xl py-4 text-lg font-bold transition-all duration-300 outline-none focus:ring-2 focus:ring-offset-2"
           >
             Locate Summoner
           </button>

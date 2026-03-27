@@ -6,9 +6,9 @@ describe('LivePlayerCard Component', () => {
   it('renders the player name and champion correctly', () => {
     render(
       <LivePlayerCard
-        championName='Ahri'
-        summonerName='Hide on bush'
-        riotId='Faker#KR1'
+        championName="Ahri"
+        summonerName="Hide on bush"
+        riotId="Faker#KR1"
       />,
     );
 
@@ -21,10 +21,7 @@ describe('LivePlayerCard Component', () => {
 
   it('falls back to summonerName if riotId is missing', () => {
     render(
-      <LivePlayerCard
-        championName='Zed'
-        summonerName='OldSchoolPlayer'
-      />,
+      <LivePlayerCard championName="Zed" summonerName="OldSchoolPlayer" />,
     );
 
     expect(screen.getByText('OldSchoolPlayer')).toBeInTheDocument();
