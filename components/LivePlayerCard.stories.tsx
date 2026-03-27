@@ -5,8 +5,6 @@ const meta: Meta<typeof LivePlayerCard> = {
   title: 'Arena/LivePlayerCard',
   component: LivePlayerCard,
   tags: ['autodocs'],
-  // We wrap the story in a div with your custom background color
-  // so the card's text colors contrast correctly!
   decorators: [
     (Story) => (
       <div className="bg-surface max-w-sm rounded-xl p-6">

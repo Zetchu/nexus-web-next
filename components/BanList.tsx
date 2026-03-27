@@ -21,7 +21,7 @@ export const BanList: React.FC<BanListProps> = ({
             className="relative h-8 w-8 overflow-hidden rounded-full border border-blue-900/50 opacity-70 grayscale md:h-10 md:w-10"
           >
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${champ}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champ}.png`}
               alt={champ}
               className="h-full w-full object-cover"
             />
@@ -43,7 +43,7 @@ export const BanList: React.FC<BanListProps> = ({
             className="relative h-8 w-8 overflow-hidden rounded-full border border-red-900/50 opacity-70 grayscale md:h-10 md:w-10"
           >
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${champ}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champ}.png`}
               alt={champ}
               className="h-full w-full object-cover"
             />
