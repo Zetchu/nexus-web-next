@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/nextjs';
 import { BanList } from './BanList';
 
 const meta: Meta<typeof BanList> = {
