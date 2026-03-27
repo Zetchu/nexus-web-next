@@ -1,26 +1,52 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* --- Colors --- */
+  /* Surface Hierarchy */
+  --color-surface-lowest: #0e0e0e;
+  --color-surface: #131313;
+  --color-surface-low: #1a1a1a;
+  --color-surface-container: #201f1f;
+  --color-surface-high: #2a2a2a;
+  --color-surface-variant: #2a2a2a;
+  --color-surface-tint: #ffb77d;
+
+  /* Brand & Accents */
+  --color-primary: #ffb77d;
+  --color-primary-container: #ff8c00;
+  --color-on-primary-fixed: #2f1500;
+  --color-secondary: #e9c349;
+  --color-secondary-fixed: #e9c349;
+  --color-error: #ffb4ab;
+
+  /* Typography & Lines */
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #a8a4a2;
+  --color-outline: #a48c7a;
+  --color-outline-variant: #a48c7a;
+
+  /* --- Fonts --- */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: Inter, sans-serif;
+
+  /* --- Backgrounds --- */
+  --background-image-kinetic-gradient: linear-gradient(
+    135deg,
+    #ffb77d,
+    #ff8c00
+  );
+
+  /* --- Shadows --- */
+  --shadow-ambient: 0 32px 64px -12px rgba(255, 140, 0, 0.08);
+  --shadow-glow-victory: 0 0 4px 1px rgba(233, 195, 73, 0.4);
+  --shadow-glow-defeat: 0 0 4px 1px rgba(255, 180, 171, 0.4);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Global Body Styles */
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
