@@ -13,9 +13,6 @@ export default function SummonerStats() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const gameName = id ? decodeURIComponent(id).split('-')[0] : 'Player';
-  const tagLine = id ? decodeURIComponent(id).split('-')[1] : 'NA1';
-
   useEffect(() => {
     if (!id) return;
 
@@ -35,8 +32,13 @@ export default function SummonerStats() {
           throw new Error(data.error || 'Failed to fetch player data');
 
         setSummoner(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        // Correctly type-checking the error here instead of using 'any'
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError(String(err));
+        }
       } finally {
         setLoading(false);
       }

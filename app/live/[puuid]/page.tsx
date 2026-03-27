@@ -5,12 +5,37 @@ import { useRouter, useParams } from 'next/navigation';
 import { LivePlayerCard } from '../../../components/LivePlayerCard';
 import { BanList } from '../../../components/BanList';
 
+interface LiveBan {
+  championName?: string;
+  teamId: number;
+}
+
+interface LiveParticipant {
+  teamId: number;
+  championName: string;
+  summonerName: string;
+  riotId?: string;
+  spell1Name?: string;
+  spell2Name?: string;
+  primaryRuneIcon?: string;
+  secondaryRuneIcon?: string;
+}
+
+interface LiveMatchData {
+  isLive: boolean;
+  message?: string;
+  gameMode: string;
+  gameLength: number;
+  bannedChampions?: LiveBan[];
+  participants: LiveParticipant[];
+}
+
 export default function LiveMatch() {
   const router = useRouter();
   const params = useParams();
   const puuid = params.puuid as string;
 
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<LiveMatchData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -29,8 +54,12 @@ export default function LiveMatch() {
         if (data.isLive === false) throw new Error(data.message);
 
         setMatch(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError(String(err));
+        }
       } finally {
         setLoading(false);
       }
@@ -70,20 +99,24 @@ export default function LiveMatch() {
     );
   }
 
-  const blueTeam = match.participants.filter((p: any) => p.teamId === 100);
-  const redTeam = match.participants.filter((p: any) => p.teamId === 200);
+  const blueTeam = match.participants.filter(
+    (p: LiveParticipant) => p.teamId === 100,
+  );
+  const redTeam = match.participants.filter(
+    (p: LiveParticipant) => p.teamId === 200,
+  );
 
-  // 2. Map the ban objects into simple arrays of strings for our BanList component
   const blueBanNames = (
     match.bannedChampions?.filter(
-      (b: any) => b.teamId === 100 && b.championName,
+      (b: LiveBan) => b.teamId === 100 && b.championName,
     ) || []
-  ).map((b: any) => b.championName);
+  ).map((b: LiveBan) => b.championName as string);
+
   const redBanNames = (
     match.bannedChampions?.filter(
-      (b: any) => b.teamId === 200 && b.championName,
+      (b: LiveBan) => b.teamId === 200 && b.championName,
     ) || []
-  ).map((b: any) => b.championName);
+  ).map((b: LiveBan) => b.championName as string);
 
   const gameMinutes = Math.floor(match.gameLength / 60);
 
@@ -122,7 +155,7 @@ export default function LiveMatch() {
               </h2>
             </div>
             <div className='flex flex-col gap-3'>
-              {blueTeam.map((player: any, idx: number) => (
+              {blueTeam.map((player: LiveParticipant, idx: number) => (
                 // 4. The new LivePlayerCard component
                 <LivePlayerCard
                   key={`blue-${idx}`}
@@ -147,7 +180,7 @@ export default function LiveMatch() {
               </h2>
             </div>
             <div className='flex flex-col gap-3'>
-              {redTeam.map((player: any, idx: number) => (
+              {redTeam.map((player: LiveParticipant, idx: number) => (
                 // 5. The new LivePlayerCard component (isRedTeam = true)
                 <LivePlayerCard
                   key={`red-${idx}`}
