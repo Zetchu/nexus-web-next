@@ -35,7 +35,7 @@ export const LivePlayerCard: React.FC<LivePlayerCardProps> = ({
       {/* Champion Icon */}
       <div className="shrink-0">
         <img
-          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${championName}.png`}
+          src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${championName}.png`}
           alt={championName}
           className="bg-surface-lowest h-12 w-12 rounded-lg object-cover shadow-inner"
           onError={(e) =>
@@ -50,7 +50,7 @@ export const LivePlayerCard: React.FC<LivePlayerCardProps> = ({
         <div className="flex flex-col gap-1">
           {spell1Name ? (
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${spell1Name}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/spell/${spell1Name}.png`}
               className="h-5 w-5 rounded"
               alt="Spell 1"
             />
@@ -59,7 +59,7 @@ export const LivePlayerCard: React.FC<LivePlayerCardProps> = ({
           )}
           {spell2Name ? (
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/spell/${spell2Name}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/spell/${spell2Name}.png`}
               className="h-5 w-5 rounded"
               alt="Spell 2"
             />

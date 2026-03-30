@@ -12,10 +12,8 @@ describe('LivePlayerCard Component', () => {
       />,
     );
 
-    // It should strip the #KR1 tag and just show "Faker"
     expect(screen.getByText('Faker')).toBeInTheDocument();
 
-    // It should display the champion name
     expect(screen.getByText('Ahri')).toBeInTheDocument();
   });
 
