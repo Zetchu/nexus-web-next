@@ -12,7 +12,8 @@
     "format:check": "prettier --check .",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "e2e": "npx playwright test"
+    "e2e": "npx playwright test",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "dependencies": {
     "next": "16.2.1",
