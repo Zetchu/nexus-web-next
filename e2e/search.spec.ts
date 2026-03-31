@@ -37,7 +37,9 @@ test.describe('Search Handling', () => {
 
     await page.getByRole('button', { name: 'Track Live' }).first().click();
 
-    await expect(page).toHaveURL(/\/summoner\/Shmungi-CPT/);
+    // INTENTIONAL FAILURE: Change the expected name to something else
+    // This will fail because the mock data is 'Shmungi'
+    await expect(page.getByText('WrongSummonerName')).toBeVisible();
   });
 
   test('should show error when Riot ID format is invalid', async ({ page }) => {
