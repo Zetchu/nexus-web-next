@@ -9,7 +9,7 @@ test.describe('Live Match Mocking', () => {
   }) => {
     const mockPuuid = 'shmungi-unique-puuid';
 
-    // 1. Mock the Player Search API (called on the profile page)
+    // 1. Mock the Player Search API (called on the profile pagee)
     await page.route(`**/api/getPlayer?*`, async (route) => {
       await route.fulfill({
         status: 200,
