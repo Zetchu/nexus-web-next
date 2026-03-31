@@ -64,6 +64,8 @@ test.describe('Live Match Mocking', () => {
     await searchInput.fill('Shmungi#CPT');
     await page.getByRole('button', { name: 'Track Live' }).first().click();
 
+    await page.waitForURL(/\/summoner\/Shmungi-CPT/);
+
     // 4. On the Profile page, click the "Live Match" link/button
     // (Assuming your Profile page has a link to /live/[puuid])
     await page.goto(`/live/${mockPuuid}`);
