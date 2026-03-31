@@ -24,7 +24,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Install Playwright Browsers
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install --with-deps
 
       - name: Lint (no fix)
         run: npm run lint
@@ -34,3 +34,16 @@ jobs:
 
       - name: Run Tests
         run: npm run test
+
+      - name: Run E2E Tests
+        run: npm run e2e
+        env:
+          RIOT_API_KEY: 'dummy_key_for_ci_testing' # This is a dummy key, since the data is mocked anyway
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

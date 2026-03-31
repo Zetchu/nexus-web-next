@@ -11,7 +11,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "e2e": "npx playwright test",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "dependencies": {
     "next": "16.2.1",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@chromatic-com/storybook": "^5.1.1",
     "@next/bundle-analyzer": "^16.2.1",
+    "@playwright/test": "^1.58.2",
     "@storybook/addon-a11y": "^10.3.3",
     "@storybook/addon-docs": "^10.3.3",
     "@storybook/addon-onboarding": "^10.3.3",
