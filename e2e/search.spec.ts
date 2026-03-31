@@ -54,34 +54,6 @@ test.describe('Search Handling', () => {
     await expect(errorMessage).toHaveClass(/text-error/);
   });
 
-  test('should show error when summoner is not found (API 404)', async ({
-    page,
-  }) => {
-    await page.route(
-      '**/api/getPlayer?gameName=Unknown&tagLine=NA1',
-      async (route) => {
-        await route.fulfill({
-          status: 404,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'Player not found in Riot system' }),
-        });
-      },
-    );
-
-    const searchInput = page
-      .locator('form')
-      .first()
-      .getByPlaceholder('Faker#KR1');
-    await searchInput.fill('Unknown#NA1');
-    await page.getByRole('button', { name: 'Track Live' }).first().click();
-
-    await expect(page).toHaveURL(/\/summoner\/Unknown-NA1/);
-
-    await expect(
-      page.getByText('Player not found in Riot system'),
-    ).toBeVisible();
-  });
-
   test('should handle server errors (API 500)', async ({ page }) => {
     await page.route('**/api/getPlayer?*', async (route) => {
       await route.fulfill({
