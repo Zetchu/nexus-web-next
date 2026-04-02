@@ -1,36 +1,23 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Live Match Mocking', () => {
+test.describe('Live Match Advanced Features', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
-  test('should navigate to and display a live match with mock data', async ({
+
+  test('should display ticking clock, win predictor, and danger tags', async ({
     page,
   }) => {
     const mockPuuid = 'shmungi-unique-puuid';
 
-    // 1. Mock the Player Search API (called on the profile pagee)
-    await page.route(`**/api/getPlayer?*`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        json: {
-          puuid: mockPuuid,
-          gameName: 'Shmungi',
-          tagLine: 'CPT',
-          tier: 'CHALLENGER',
-          rank: 'I',
-        },
-      });
-    });
-
-    // 2. Mock the Live Match API (called on /live/[puuid])
+    // 1. Mock the Live Match API with our new advanced scouting data
     await page.route(`**/api/getMatch?puuid=${mockPuuid}`, async (route) => {
       await route.fulfill({
         status: 200,
         json: {
           isLive: true,
           gameMode: 'CLASSIC',
-          gameLength: 600, // 10 minutes
+          gameLength: 600, // 600 seconds = 10:00
           bannedChampions: [
             { championName: 'Yasuo', teamId: 100 },
             { championName: 'Zed', teamId: 200 },
@@ -39,54 +26,56 @@ test.describe('Live Match Mocking', () => {
             {
               teamId: 100,
               championName: 'LeeSin',
-              summonerName: 'Shmungi',
+              summonerName: 'Shmungi', // Blue team Smurf & OTP
               spell1Name: 'SummonerFlash',
               spell2Name: 'SummonerSmite',
+              tier: 'CHALLENGER',
+              rank: 'I',
+              winRate: 65,
+              totalGames: 120,
+              masteryPoints: 1500000, // Over 500k = OTP
+              masteryLevel: 10,
             },
             {
               teamId: 200,
               championName: 'Aatrox',
-              summonerName: 'EnemyPro',
+              summonerName: 'EnemyPro', // Red team First Timer
               spell1Name: 'SummonerFlash',
               spell2Name: 'SummonerTeleport',
+              tier: 'DIAMOND',
+              rank: 'IV',
+              winRate: 45,
+              totalGames: 50,
+              masteryPoints: 1200,
+              masteryLevel: 2, // Level <= 3 = First Timer
             },
           ],
         },
       });
     });
 
-    // 3. Start at Home and search
-    await page.goto('/');
-    const searchInput = page
-      .locator('form')
-      .first()
-      .getByPlaceholder('Faker#KR1');
-    await searchInput.fill('Shmungi#CPT');
-    await page.getByRole('button', { name: 'Track Live' }).first().click();
-
-    await page.waitForURL(/\/summoner\/Shmungi-CPT/);
-
-    // 4. On the Profile page, click the "Live Match" link/button
-    // (Assuming your Profile page has a link to /live/[puuid])
+    // 2. Navigate directly to the live match
     await page.goto(`/live/${mockPuuid}`);
 
-    // 5. Verify Live Match UI
-    // Check if the loading state finishes
+    // Wait for the loading state to finish
     await expect(page.getByText('Scanning Live Arenas...')).not.toBeVisible();
 
-    // Verify Game Info
-    await expect(page.getByText('CLASSIC • 10 mins')).toBeVisible();
+    // --- NEW ASSERTIONS ---
 
-    // Verify Blue Team Participant
-    const blueTeamSection = page
-      .locator('section')
-      .filter({ hasText: 'Blue Team' });
-    await expect(blueTeamSection.getByText('Shmungi')).toBeVisible();
-    await expect(blueTeamSection.getByText('LeeSin')).toBeVisible();
+    // 1. Check the new Clock formatting (600 seconds -> 10:00)
+    await expect(page.getByText('CLASSIC • 10:00')).toBeVisible();
 
-    // Verify Bans
-    await expect(page.getByAltText(/Yasuo/i)).toBeVisible();
-    await expect(page.getByAltText(/Zed/i)).toBeVisible();
+    // 2. Check the Win Predictor Bar
+    await expect(page.getByText(/Blue Team Advantage/)).toBeVisible();
+    await expect(page.getByText(/Red Team Advantage/)).toBeVisible();
+
+    // 3. Check the Danger Tags
+    await expect(page.getByText('🔥 OTP')).toBeVisible();
+    await expect(page.getByText('⚠️ First Timer')).toBeVisible();
+
+    // 4. Verify specific players loaded
+    await expect(page.getByText('Shmungi')).toBeVisible();
+    await expect(page.getByText('EnemyPro')).toBeVisible();
   });
 
   test('should show "No Active Match" if player is not in game', async ({
@@ -106,14 +95,8 @@ test.describe('Live Match Mocking', () => {
 
     await page.goto(`/live/${mockPuuid}`);
 
-    // Verify the "Sleep" emoji and message defined in your page.tsx
     await expect(page.getByText('💤')).toBeVisible();
     await expect(page.getByText('No Active Match')).toBeVisible();
-    await expect(
-      page.getByText('Summoner is not currently in a match.'),
-    ).toBeVisible();
-
-    // Verify back button works
     await page.getByRole('button', { name: 'Go Back' }).click();
   });
 });

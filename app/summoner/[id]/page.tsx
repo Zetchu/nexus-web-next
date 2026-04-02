@@ -3,6 +3,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { SummonerData, MatchData } from '@/app/types';
+import { ProfileHeader } from '@/components/ProfileHeader/ProfileHeader';
+import { RecentForm } from '@/components/RecentForm/RecentForm';
+import { MostPlayed } from '@/components/MostPlayed/MostPlayed';
+import { TopMastery } from '@/components/TopMastery/TopMastery';
 
 export default function SummonerStats() {
   const router = useRouter();
@@ -262,177 +266,28 @@ export default function SummonerStats() {
       </nav>
 
       <main className="mx-auto max-w-4xl space-y-6">
-        <section className="bg-surface-low border-outline-variant/20 flex flex-col items-center gap-6 rounded-2xl border p-8 md:flex-row">
-          <div className="border-outline-variant/50 h-24 w-24 overflow-hidden rounded-2xl border-2">
-            <img
-              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/profileicon/${summoner.profileIconId}.png`}
-              alt="Icon"
-            />
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="font-display text-4xl font-bold">
-              {summoner.gameName}{' '}
-              <span className="text-on-surface-variant/50 text-2xl">
-                #{summoner.tagLine}
-              </span>
-            </h1>
-            <p className="text-primary mt-1 font-bold">
-              Level {summoner.summonerLevel} • {summoner.tier} {summoner.rank}
-            </p>
-          </div>
-          <button
-            onClick={() => router.push(`/live/${summoner.puuid}`)}
-            className="bg-primary text-surface-lowest hover:bg-primary-container rounded-xl px-6 py-3 font-bold transition-all"
-          >
-            Spectate Live
-          </button>
-        </section>
+        {/* 1. Profile Header */}
+        <ProfileHeader summoner={summoner} />
 
         {aggregatedStats && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="bg-surface-low border-outline-variant/20 flex flex-col items-center justify-center rounded-2xl border p-6">
-              <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
-                Last 15 Games
-              </h3>
-              <div className="relative flex h-32 w-32 items-center justify-center">
-                <div className="border-error/20 absolute inset-0 rounded-full border-8"></div>
-                <div
-                  className="border-primary absolute inset-0 rounded-full border-8"
-                  style={{
-                    clipPath: `polygon(0 0, 100% 0, 100% ${aggregatedStats.winRate}%, 0 ${aggregatedStats.winRate}%)`,
-                  }}
-                ></div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold">
-                    {aggregatedStats.winRate}%
-                  </div>
-                  <div className="text-on-surface-variant text-xs">
-                    {aggregatedStats.wins}W {aggregatedStats.losses}L
-                  </div>
-                </div>
-              </div>
-              <div className="border-outline-variant/10 mt-4 w-full border-b pb-4 text-center">
-                <div className="font-bold">{aggregatedStats.kda}:1 KDA</div>
-                <div className="text-on-surface-variant text-sm">
-                  {aggregatedStats.avgKills} /{' '}
-                  <span className="text-error">
-                    {aggregatedStats.avgDeaths}
-                  </span>{' '}
-                  / {aggregatedStats.avgAssists}
-                </div>
-              </div>
+            {/* 2. Recent Form */}
+            <RecentForm
+              winRate={aggregatedStats.winRate}
+              wins={aggregatedStats.wins}
+              losses={aggregatedStats.losses}
+              kda={aggregatedStats.kda}
+              avgKills={aggregatedStats.avgKills}
+              avgDeaths={aggregatedStats.avgDeaths}
+              avgAssists={aggregatedStats.avgAssists}
+              topRoles={aggregatedStats.topRoles}
+            />
 
-              <div className="mt-4 flex w-full flex-col items-center text-center">
-                <div className="text-on-surface-variant mb-2 text-[10px] font-bold tracking-wider uppercase">
-                  Preferred Roles
-                </div>
-                <div className="flex gap-4">
-                  {aggregatedStats.topRoles.map(([role, count]) => (
-                    <div key={role} className="flex flex-col items-center">
-                      <div className="bg-surface-high border-outline-variant/20 text-secondary rounded-lg border px-3 py-1 text-xs font-bold">
-                        {role === 'UTILITY' ? 'SUPPORT' : role}
-                      </div>
-                      <span className="text-on-surface-variant mt-1 text-[10px]">
-                        {count} Games
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* 3. Most Played */}
+            <MostPlayed topChamps={aggregatedStats.topChamps} />
 
-            <div className="bg-surface-low border-outline-variant/20 rounded-2xl border p-6 md:col-span-2">
-              <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
-                Most Played (Recent)
-              </h3>
-              <div className="flex flex-col gap-3">
-                {aggregatedStats.topChamps.map(
-                  ([champName, stats]: [
-                    string,
-                    {
-                      wins: number;
-                      games: number;
-                      k: number;
-                      a: number;
-                      d: number;
-                    },
-                  ]) => {
-                    const winRate = Math.round(
-                      (stats.wins / stats.games) * 100,
-                    );
-                    const kda = (
-                      (stats.k + stats.a) /
-                      Math.max(1, stats.d)
-                    ).toFixed(2);
-
-                    return (
-                      <div
-                        key={champName}
-                        className="border-outline-variant/10 flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
-                      >
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
-                            className="h-10 w-10 rounded-full"
-                            alt={champName}
-                          />
-                          <div>
-                            <div className="font-bold">{champName}</div>
-                            <div className="text-on-surface-variant text-xs">
-                              {stats.games} games played
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div
-                            className={`font-bold ${winRate >= 50 ? 'text-primary' : 'text-error'}`}
-                          >
-                            {winRate}% Win Rate
-                          </div>
-                          <div className="text-on-surface-variant text-xs">
-                            {kda} KDA
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-
-            <div className="bg-surface-low border-outline-variant/20 rounded-2xl border p-6 md:col-span-3">
-              <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
-                Lifetime Top Mastery
-              </h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                {masteries?.map((mastery, index) => {
-                  const champName =
-                    champDict[mastery.championId.toString()] || 'Unknown';
-                  return (
-                    <div
-                      key={mastery.championId}
-                      className="bg-surface-lowest border-outline-variant/10 relative flex flex-col items-center rounded-xl border p-4"
-                    >
-                      {index === 0 && (
-                        <span className="absolute -top-3 text-xl">👑</span>
-                      )}
-                      <img
-                        src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
-                        className={`h-16 w-16 rounded-lg shadow-md ${index === 0 ? 'ring-2 ring-yellow-500' : ''}`}
-                        alt={champName}
-                      />
-                      <div className="mt-3 font-bold">{champName}</div>
-                      <div className="text-secondary text-sm font-medium">
-                        {(mastery.championPoints / 1000).toFixed(0)}k pts
-                      </div>
-                      <div className="text-on-surface-variant mt-1 text-xs">
-                        Level {mastery.championLevel}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* 4. Top Mastery */}
+            <TopMastery masteries={masteries || []} champDict={champDict} />
           </div>
         )}
       </main>

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { LivePlayerCard } from '../../../components/LivePlayerCard';
-import { BanList } from '../../../components/BanList';
+import { LivePlayerCard } from '@/components/LivePlayerCard/LivePlayerCard';
+import { BanList } from '@/components/BanList/BanList';
 
 interface LiveBan {
   championName?: string;
