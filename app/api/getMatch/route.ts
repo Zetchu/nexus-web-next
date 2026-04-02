@@ -32,9 +32,9 @@ export async function GET(request: Request) {
 
   try {
     const headers = { 'X-Riot-Token': API_KEY as string };
-    const platform = 'eun1';
+    const platform = 'eun1'; // Change to match your server if needed
 
-    // 1. Fetch the live game data
+    // 1. Fetch the live game data (Reverted back to by-summoner!)
     const matchRes = await fetch(
       `https://${platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`,
       { headers },
@@ -46,12 +46,92 @@ export async function GET(request: Request) {
         { status: 200 },
       );
     }
-    if (!matchRes.ok) throw new Error('Failed to fetch match data');
+
+    // Add specific catching for Rate Limits
+    if (matchRes.status === 429)
+      throw new Error('Riot API Rate Limit Exceeded. Try again in a moment.');
+    if (!matchRes.ok)
+      throw new Error(
+        `Failed to fetch match data (Status: ${matchRes.status})`,
+      );
 
     const matchData = await matchRes.json();
 
-    // 2. Fetch Data Dragon Dictionaries in Parallel (Extremely Fast)
-    const PATCH = '16.6.1';
+    // 2. Fetch Ranked Data for all 10 players SEQUENTIALLY to avoid Rate Limits
+    const participantsWithRanks = [];
+    for (const player of matchData.participants) {
+      try {
+        // Add a 100ms delay between players.
+        // 1 Spectator + 10 Ranks + 10 Masteries = 21 requests.
+        // Riot's dev limit is 20 per second! This delay prevents crashing.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${player.puuid}`;
+        const masteryUrl = `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${player.puuid}/by-champion/${player.championId}`;
+
+        const [leagueRes, masteryRes] = await Promise.all([
+          fetch(leagueUrl, { headers }),
+          fetch(masteryUrl, { headers }),
+        ]);
+
+        let tier = 'UNRANKED';
+        let rank = '';
+        let winRate = 0;
+        let totalGames = 0;
+
+        if (leagueRes.ok) {
+          const leagueData = await leagueRes.json();
+          const soloQ = leagueData.find(
+            (entry: any) => entry.queueType === 'RANKED_SOLO_5x5',
+          );
+
+          if (soloQ) {
+            tier = soloQ.tier;
+            rank = soloQ.rank;
+            totalGames = soloQ.wins + soloQ.losses;
+            winRate = Math.round((soloQ.wins / totalGames) * 100);
+          }
+        }
+
+        let masteryPoints = 0;
+        let masteryLevel = 0;
+
+        if (masteryRes.ok) {
+          const masteryData = await masteryRes.json();
+          masteryPoints = masteryData.championPoints || 0;
+          masteryLevel = masteryData.championLevel || 0;
+        }
+
+        participantsWithRanks.push({
+          ...player,
+          tier,
+          rank,
+          winRate,
+          totalGames,
+          masteryPoints,
+          masteryLevel,
+        });
+      } catch (err) {
+        participantsWithRanks.push({
+          ...player,
+          tier: 'UNRANKED',
+          rank: '',
+          winRate: 0,
+          totalGames: 0,
+          masteryPoints: 0,
+          masteryLevel: 0,
+        });
+      }
+    }
+
+    // 3. Dynamically Fetch Data Dragon Dictionaries
+    // Fetches the exact current patch automatically so you never get 403s again!
+    const versionRes = await fetch(
+      'https://ddragon.leagueoflegends.com/api/versions.json',
+    );
+    const versions = await versionRes.json();
+    const PATCH = versions[0];
+
     const [ddragonRes, spellsRes, runesRes] = await Promise.all([
       fetch(
         `https://ddragon.leagueoflegends.com/cdn/${PATCH}/data/en_US/champion.json`,
@@ -68,20 +148,17 @@ export async function GET(request: Request) {
     const spellsData = await spellsRes.json();
     const runesData = await runesRes.json();
 
-    // Replaced `any[]` with `DDragonItem[]`
     const championList = Object.values(ddragonData.data) as DDragonItem[];
     const spellList = Object.values(spellsData.data) as DDragonItem[];
 
-    // 3. Map the Ban List
-    // Replaced `(b: any)` with `(b: MatchBan)`
+    // 4. Map the Ban List
     const enrichedBans = matchData.bannedChampions.map((b: MatchBan) => {
       const champ = championList.find((c) => parseInt(c.key) === b.championId);
       return { ...b, championName: champ ? champ.id : null };
     });
 
-    // 4. Enrich the Participants (Spells & Runes)
-    // Replaced `(p: any)` with `(p: MatchParticipant)`
-    const enrichedParticipants = matchData.participants.map(
+    // 5. Enrich the Participants
+    const enrichedParticipants = participantsWithRanks.map(
       (p: MatchParticipant) => {
         const champ = championList.find(
           (c) => parseInt(c.key) === p.championId,
@@ -92,7 +169,6 @@ export async function GET(request: Request) {
         let primaryIcon = '';
         let secondaryIcon = '';
 
-        // Find Rune Image Paths
         const primaryKeystoneId = p.perks?.perkIds?.[0];
         const secondaryStyleId = p.perks?.perkSubStyle;
 

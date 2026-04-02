@@ -9,86 +9,13 @@ export default function SummonerStats() {
   const params = useParams();
   const id = params.id as string;
 
-  // 1. SYNCHRONOUS CACHE READ
-  // This runs *before* the component paints, entirely preventing the loading flash.
-  const getInitialData = () => {
-    // Next.js SSR protection
-    if (typeof window === 'undefined' || !id) {
-      return {
-        summoner: null,
-        matches: null,
-        masteries: null,
-        dict: {},
-        loading: true,
-        isCached: false,
-      };
-    }
-
-    const decodedId = decodeURIComponent(id);
-    const lastHyphenIndex = decodedId.lastIndexOf('-');
-    const gName = decodedId.substring(0, lastHyphenIndex);
-    const tLine = decodedId.substring(lastHyphenIndex + 1);
-
-    let isCached = false;
-    let s = null,
-      m = null,
-      mast = null,
-      d = {};
-
-    // Check Dictionary Cache
-    const cachedDict = localStorage.getItem('riot_champ_dict');
-    if (cachedDict) {
-      try {
-        d = JSON.parse(cachedDict);
-      } catch (e) {}
-    }
-
-    // Check Profile Cache
-    const cachedData = localStorage.getItem('riot_profile_cache');
-    if (cachedData) {
-      try {
-        const parsedCache = JSON.parse(cachedData);
-        if (
-          parsedCache.summoner &&
-          parsedCache.summoner.gameName.toLowerCase() === gName.toLowerCase() &&
-          parsedCache.summoner.tagLine.toLowerCase() === tLine.toLowerCase()
-        ) {
-          s = parsedCache.summoner;
-          m = parsedCache.matches;
-          mast = parsedCache.masteries;
-          isCached = true;
-        }
-      } catch (e) {}
-    }
-
-    return {
-      summoner: s,
-      matches: m,
-      masteries: mast,
-      dict: d,
-      loading: !isCached,
-      isCached,
-    };
-  };
-
-  // We set all initial states based on the synchronous read above
-  const [initialState] = useState(getInitialData);
-
-  const [summoner, setSummoner] = useState<SummonerData | null>(
-    initialState.summoner,
-  );
-  const [matches, setMatches] = useState<MatchData[] | null>(
-    initialState.matches,
-  );
-  const [masteries, setMasteries] = useState<any[] | null>(
-    initialState.masteries,
-  );
-  const [champDict, setChampDict] = useState<Record<string, string>>(
-    initialState.dict,
-  );
-  const [loading, setLoading] = useState(initialState.loading); // Will be FALSE instantly if cached!
+  // Standard safe initialization for Next.js SSR
+  const [summoner, setSummoner] = useState<SummonerData | null>(null);
+  const [matches, setMatches] = useState<MatchData[] | null>(null);
+  const [masteries, setMasteries] = useState<any[] | null>(null);
+  const [champDict, setChampDict] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -96,40 +23,59 @@ export default function SummonerStats() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    // 2. IF CACHED: We just need to silently load the dictionary in the background if it was missing
-    if (initialState.isCached) {
-      if (Object.keys(initialState.dict).length === 0) {
-        fetch(
-          'https://ddragon.leagueoflegends.com/cdn/14.6.1/data/en_US/champion.json',
-        )
-          .then((res) => res.json())
-          .then((data) => {
-            const dict: Record<string, string> = {};
-            Object.values(data.data).forEach((champ: any) => {
-              dict[champ.key] = champ.id;
-            });
-            setChampDict(dict);
-            localStorage.setItem('riot_champ_dict', JSON.stringify(dict));
-          });
-      }
-      return; // Exit here. No Riot APIs are called!
-    }
-
-    // 3. FALLBACK: They hard-refreshed or used a direct link, fetch everything normally
     const fetchData = async () => {
-      setLoading(true);
-      setError('');
-
       try {
         const decodedId = decodeURIComponent(id);
         const lastHyphenIndex = decodedId.lastIndexOf('-');
         const gName = decodedId.substring(0, lastHyphenIndex);
         const tLine = decodedId.substring(lastHyphenIndex + 1);
 
-        // Fetch DDragon Mapping
-        if (Object.keys(initialState.dict).length === 0) {
+        // 1. CHECK CACHE FIRST (Runs safely on client side)
+        let localDict: Record<string, string> = {};
+        const cachedDict = localStorage.getItem('riot_champ_dict');
+        if (cachedDict) {
+          localDict = JSON.parse(cachedDict);
+          setChampDict(localDict);
+        }
+
+        const cachedData = localStorage.getItem('riot_profile_cache');
+        if (cachedData) {
+          const parsedCache = JSON.parse(cachedData);
+          if (
+            parsedCache.summoner &&
+            parsedCache.summoner.gameName.toLowerCase() ===
+              gName.toLowerCase() &&
+            parsedCache.summoner.tagLine.toLowerCase() === tLine.toLowerCase()
+          ) {
+            setSummoner(parsedCache.summoner);
+            setMatches(parsedCache.matches);
+            setMasteries(parsedCache.masteries);
+
+            if (!cachedDict) {
+              fetch(
+                'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
+              )
+                .then((res) => res.json())
+                .then((data) => {
+                  const dict: Record<string, string> = {};
+                  Object.values(data.data).forEach((champ: any) => {
+                    dict[champ.key] = champ.id;
+                  });
+                  setChampDict(dict);
+                  localStorage.setItem('riot_champ_dict', JSON.stringify(dict));
+                });
+            }
+
+            // Turn off skeleton instantly
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 2. FALLBACK: Fetch everything from Riot APIs
+        if (!cachedDict) {
           const ddragonRes = await fetch(
-            'https://ddragon.leagueoflegends.com/cdn/14.6.1/data/en_US/champion.json',
+            'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
           );
           const ddragonData = await ddragonRes.json();
           const dict: Record<string, string> = {};
@@ -140,7 +86,6 @@ export default function SummonerStats() {
           localStorage.setItem('riot_champ_dict', JSON.stringify(dict));
         }
 
-        // Fetch Player
         const playerRes = await fetch(
           `/api/getPlayer?gameName=${encodeURIComponent(gName)}&tagLine=${encodeURIComponent(tLine)}`,
         );
@@ -150,7 +95,6 @@ export default function SummonerStats() {
 
         setSummoner(playerData);
 
-        // Parallel Fetch Matches & Mastery
         const [matchesRes, masteryRes] = await Promise.all([
           fetch(`/api/getMatches?puuid=${playerData.puuid}&start=0&count=15`),
           fetch(`/api/getMastery?puuid=${playerData.puuid}`),
@@ -162,7 +106,6 @@ export default function SummonerStats() {
         setMatches(newMatches);
         setMasteries(newMasteries);
 
-        // Save the complete payload
         localStorage.setItem(
           'riot_profile_cache',
           JSON.stringify({
@@ -179,9 +122,8 @@ export default function SummonerStats() {
     };
 
     fetchData();
-  }, [id, initialState]);
+  }, [id]);
 
-  // --- DATA AGGREGATION ENGINE (Last 15 Games) ---
   const aggregatedStats = useMemo(() => {
     if (!matches || matches.length === 0) return null;
 
@@ -201,11 +143,9 @@ export default function SummonerStats() {
       deaths += match.deaths;
       assists += match.assists;
 
-      // Role aggregation
       const role = match.teamPosition || 'FILL';
       roleMap[role] = (roleMap[role] || 0) + 1;
 
-      // Champion aggregation
       const champ = match.championName;
       if (!champMap[champ])
         champMap[champ] = { games: 0, wins: 0, k: 0, d: 0, a: 0 };
@@ -242,7 +182,6 @@ export default function SummonerStats() {
         </nav>
 
         <main className="mx-auto max-w-4xl space-y-6">
-          {/* HEADER SKELETON */}
           <section className="bg-surface-low border-outline-variant/20 flex flex-col items-center gap-6 rounded-2xl border p-8 md:flex-row">
             <div className="bg-surface-high h-24 w-24 shrink-0 animate-pulse rounded-2xl"></div>
             <div className="flex flex-1 flex-col items-center gap-3 md:items-start">
@@ -252,16 +191,13 @@ export default function SummonerStats() {
             <div className="bg-surface-high h-12 w-40 animate-pulse rounded-xl"></div>
           </section>
 
-          {/* DASHBOARD GRID SKELETON */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* 1. Recent Form Skeleton */}
             <div className="bg-surface-low border-outline-variant/20 flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border p-6">
               <div className="bg-surface-variant h-4 w-24 animate-pulse rounded-md"></div>
               <div className="bg-surface-high h-32 w-32 animate-pulse rounded-full"></div>
               <div className="bg-surface-variant mt-2 h-5 w-32 animate-pulse rounded-md"></div>
             </div>
 
-            {/* 2. Recent Champions Skeleton */}
             <div className="bg-surface-low border-outline-variant/20 h-72 rounded-2xl border p-6 md:col-span-2">
               <div className="bg-surface-variant mb-6 h-4 w-32 animate-pulse rounded-md"></div>
               <div className="flex flex-col gap-4">
@@ -286,7 +222,6 @@ export default function SummonerStats() {
               </div>
             </div>
 
-            {/* 3. Mastery Skeleton */}
             <div className="bg-surface-low border-outline-variant/20 h-48 rounded-2xl border p-6 md:col-span-3">
               <div className="bg-surface-variant mb-6 h-4 w-40 animate-pulse rounded-md"></div>
               <div className="grid grid-cols-3 gap-4">
@@ -306,6 +241,7 @@ export default function SummonerStats() {
         </main>
       </div>
     );
+
   if (error || !summoner)
     return (
       <div className="text-error p-10 text-center">{error || 'Not Found'}</div>
@@ -323,11 +259,10 @@ export default function SummonerStats() {
       </nav>
 
       <main className="mx-auto max-w-4xl space-y-6">
-        {/* PLAYER HEADER */}
         <section className="bg-surface-low border-outline-variant/20 flex flex-col items-center gap-6 rounded-2xl border p-8 md:flex-row">
           <div className="border-outline-variant/50 h-24 w-24 overflow-hidden rounded-2xl border-2">
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/profileicon/${summoner.profileIconId}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/profileicon/${summoner.profileIconId}.png`}
               alt="Icon"
             />
           </div>
@@ -350,10 +285,8 @@ export default function SummonerStats() {
           </button>
         </section>
 
-        {/* AGGREGATE DASHBOARD GRID */}
         {aggregatedStats && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* 1. RECENT FORM (Last 15 Games) */}
             <div className="bg-surface-low border-outline-variant/20 flex flex-col items-center justify-center rounded-2xl border p-6">
               <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
                 Last 15 Games
@@ -375,7 +308,7 @@ export default function SummonerStats() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4 text-center">
+              <div className="border-outline-variant/10 mt-4 w-full border-b pb-4 text-center">
                 <div className="font-bold">{aggregatedStats.kda}:1 KDA</div>
                 <div className="text-on-surface-variant text-sm">
                   {aggregatedStats.avgKills} /{' '}
@@ -385,9 +318,26 @@ export default function SummonerStats() {
                   / {aggregatedStats.avgAssists}
                 </div>
               </div>
+
+              <div className="mt-4 flex w-full flex-col items-center text-center">
+                <div className="text-on-surface-variant mb-2 text-[10px] font-bold tracking-wider uppercase">
+                  Preferred Roles
+                </div>
+                <div className="flex gap-4">
+                  {aggregatedStats.topRoles.map(([role, count]) => (
+                    <div key={role} className="flex flex-col items-center">
+                      <div className="bg-surface-high border-outline-variant/20 text-secondary rounded-lg border px-3 py-1 text-xs font-bold">
+                        {role === 'UTILITY' ? 'SUPPORT' : role}
+                      </div>
+                      <span className="text-on-surface-variant mt-1 text-[10px]">
+                        {count} Games
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* 2. RECENT CHAMPIONS */}
             <div className="bg-surface-low border-outline-variant/20 rounded-2xl border p-6 md:col-span-2">
               <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
                 Most Played (Recent)
@@ -407,7 +357,7 @@ export default function SummonerStats() {
                     >
                       <div className="flex items-center gap-3">
                         <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${champName}.png`}
+                          src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
                           className="h-10 w-10 rounded-full"
                           alt={champName}
                         />
@@ -434,7 +384,6 @@ export default function SummonerStats() {
               </div>
             </div>
 
-            {/* 3. LIFETIME MASTERY */}
             <div className="bg-surface-low border-outline-variant/20 rounded-2xl border p-6 md:col-span-3">
               <h3 className="text-on-surface-variant mb-4 text-xs font-bold tracking-wider uppercase">
                 Lifetime Top Mastery
@@ -452,7 +401,7 @@ export default function SummonerStats() {
                         <span className="absolute -top-3 text-xl">👑</span>
                       )}
                       <img
-                        src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/champion/${champName}.png`}
+                        src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
                         className={`h-16 w-16 rounded-lg shadow-md ${index === 0 ? 'ring-2 ring-yellow-500' : ''}`}
                         alt={champName}
                       />

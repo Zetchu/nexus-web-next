@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { LivePlayerCard } from '../../../components/LivePlayerCard';
 import { BanList } from '../../../components/BanList';
@@ -19,6 +19,12 @@ interface LiveParticipant {
   spell2Name?: string;
   primaryRuneIcon?: string;
   secondaryRuneIcon?: string;
+  tier?: string;
+  rank?: string;
+  winRate?: number;
+  totalGames?: number;
+  masteryPoints?: number;
+  masteryLevel?: number;
 }
 
 interface LiveMatchData {
@@ -39,8 +45,13 @@ export default function LiveMatch() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const hasFetched = useRef(false);
+
   useEffect(() => {
     if (!puuid) return;
+
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
     const fetchLiveMatch = async () => {
       setLoading(true);
@@ -120,6 +131,8 @@ export default function LiveMatch() {
 
   const gameMinutes = Math.floor(match.gameLength / 60);
 
+  const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+
   return (
     <div className="bg-surface font-body min-h-screen p-6">
       <nav className="mx-auto mt-4 mb-8 flex max-w-6xl items-center justify-between">
@@ -140,59 +153,84 @@ export default function LiveMatch() {
       </nav>
 
       <main className="mx-auto max-w-6xl">
-        {/* 3. The new BanList Component */}
         <BanList blueBans={blueBanNames} redBans={redBanNames} />
 
-        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* BLUE TEAM */}
-          <section>
-            <div className="mb-4 border-b border-blue-500/30 pb-2">
-              <h2 className="font-display text-xl font-bold text-blue-400">
-                Blue Team
-              </h2>
-            </div>
-            <div className="flex flex-col gap-3">
-              {blueTeam.map((player: LiveParticipant, idx: number) => (
-                // 4. The new LivePlayerCard component
-                <LivePlayerCard
-                  key={`blue-${idx}`}
-                  championName={player.championName}
-                  summonerName={player.summonerName}
-                  riotId={player.riotId}
-                  spell1Name={player.spell1Name}
-                  spell2Name={player.spell2Name}
-                  primaryRuneIcon={player.primaryRuneIcon}
-                  secondaryRuneIcon={player.secondaryRuneIcon}
-                  isRedTeam={false}
-                />
-              ))}
-            </div>
-          </section>
+        {/* --- NEW FACE-OFF LAYOUT --- */}
+        <div className="mt-12 flex flex-col gap-6">
+          {/* Header Row (Desktop Only) */}
+          <div className="border-outline-variant/20 hidden items-center justify-between border-b px-4 pb-2 lg:flex">
+            <h2 className="font-display w-1/2 text-xl font-bold text-blue-400">
+              Blue Team
+            </h2>
+            <h2 className="font-display w-1/2 text-right text-xl font-bold text-red-400">
+              Red Team
+            </h2>
+          </div>
 
-          {/* RED TEAM */}
-          <section>
-            <div className="mb-4 border-b border-red-500/30 pb-2 lg:text-right">
-              <h2 className="font-display text-xl font-bold text-red-400">
-                Red Team
-              </h2>
-            </div>
-            <div className="flex flex-col gap-3">
-              {redTeam.map((player: LiveParticipant, idx: number) => (
-                // 5. The new LivePlayerCard component (isRedTeam = true)
-                <LivePlayerCard
-                  key={`red-${idx}`}
-                  championName={player.championName}
-                  summonerName={player.summonerName}
-                  riotId={player.riotId}
-                  spell1Name={player.spell1Name}
-                  spell2Name={player.spell2Name}
-                  primaryRuneIcon={player.primaryRuneIcon}
-                  secondaryRuneIcon={player.secondaryRuneIcon}
-                  isRedTeam={true}
-                />
-              ))}
-            </div>
-          </section>
+          {/* Map through the 5 roles */}
+          {ROLES.map((role, idx) => {
+            const bluePlayer = blueTeam[idx];
+            const redPlayer = redTeam[idx];
+
+            return (
+              <div
+                key={role}
+                className="bg-surface-low border-outline-variant/10 relative flex flex-col items-center gap-4 rounded-2xl border p-4 lg:flex-row lg:gap-8 lg:border-none lg:bg-transparent lg:p-0"
+              >
+                {/* Blue Side */}
+                <div className="w-full lg:w-1/2">
+                  {bluePlayer ? (
+                    <LivePlayerCard
+                      championName={bluePlayer.championName}
+                      summonerName={bluePlayer.summonerName}
+                      riotId={bluePlayer.riotId}
+                      spell1Name={bluePlayer.spell1Name}
+                      spell2Name={bluePlayer.spell2Name}
+                      primaryRuneIcon={bluePlayer.primaryRuneIcon}
+                      secondaryRuneIcon={bluePlayer.secondaryRuneIcon}
+                      isRedTeam={false}
+                      tier={bluePlayer.tier}
+                      rank={bluePlayer.rank}
+                      winRate={bluePlayer.winRate}
+                      totalGames={bluePlayer.totalGames}
+                      masteryPoints={bluePlayer.masteryPoints}
+                      masteryLevel={bluePlayer.masteryLevel}
+                    />
+                  ) : (
+                    <div className="border-outline-variant/30 text-on-surface-variant flex h-22 items-center justify-center rounded-xl border border-dashed text-sm">
+                      Connecting...
+                    </div>
+                  )}
+                </div>
+
+                {/* Red Side */}
+                <div className="w-full lg:w-1/2">
+                  {redPlayer ? (
+                    <LivePlayerCard
+                      championName={redPlayer.championName}
+                      summonerName={redPlayer.summonerName}
+                      riotId={redPlayer.riotId}
+                      spell1Name={redPlayer.spell1Name}
+                      spell2Name={redPlayer.spell2Name}
+                      primaryRuneIcon={redPlayer.primaryRuneIcon}
+                      secondaryRuneIcon={redPlayer.secondaryRuneIcon}
+                      isRedTeam={true}
+                      tier={redPlayer.tier}
+                      rank={redPlayer.rank}
+                      winRate={redPlayer.winRate}
+                      totalGames={redPlayer.totalGames}
+                      masteryPoints={redPlayer.masteryPoints}
+                      masteryLevel={redPlayer.masteryLevel}
+                    />
+                  ) : (
+                    <div className="border-outline-variant/30 text-on-surface-variant flex h-22 items-center justify-center rounded-xl border border-dashed text-sm">
+                      Connecting...
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </main>
     </div>

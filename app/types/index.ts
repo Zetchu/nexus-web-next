@@ -34,3 +34,23 @@ export interface MatchData {
   tiltScore: number;
   tiltModifiers: string[];
 }
+
+interface LiveParticipant {
+  teamId: number;
+  championName: string;
+  summonerName: string;
+  riotId?: string;
+  spell1Name?: string;
+  spell2Name?: string;
+  primaryRuneIcon?: string;
+  secondaryRuneIcon?: string;
+
+  // --- The Fun Stuff ---
+  guessedRole: 'TOP' | 'JUNGLE' | 'MID' | 'ADC' | 'SUPPORT';
+  tier: string; // e.g., "DIAMOND"
+  rank: string; // e.g., "II"
+  winRate: number; // e.g., 55
+  championMastery: number; // e.g., 150000
+  tags: string[]; // e.g., ["OTP", "Hot Streak", "Smurf"]
+  premadeGroupId?: number; // Matches them with their duo
+}
