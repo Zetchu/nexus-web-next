@@ -13,6 +13,7 @@ export default [
       'dist/**',
       'node_modules/**',
       'next-env.d.ts',
+      'playwright-report/**',
     ],
   },
 
@@ -27,14 +28,14 @@ export default [
       // Allow standard <img> tags since we use external Riot Data Dragon images
       '@next/next/no-img-element': 'off',
 
-      // Silence the warnings for the 'any' types we used in the API routes
-      '@typescript-eslint/no-explicit-any': 'off',
+      // // Silence the warnings for the 'any' types we used in the API routes
+      // '@typescript-eslint/no-explicit-any': 'off',
 
-      // Clean up unused variable warnings so your terminal stays clean
-      '@typescript-eslint/no-unused-vars': 'off',
+      // // Clean up unused variable warnings so your terminal stays clean
+      // '@typescript-eslint/no-unused-vars': 'off',
 
-      // Stop ESLint from yelling about unescaped apostrophes
-      'react/no-unescaped-entities': 'off',
+      // // Stop ESLint from yelling about unescaped apostrophes
+      // 'react/no-unescaped-entities': 'off',
     },
   },
 ];

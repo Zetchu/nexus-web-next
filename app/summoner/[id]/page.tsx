@@ -12,7 +12,10 @@ export default function SummonerStats() {
   // Standard safe initialization for Next.js SSR
   const [summoner, setSummoner] = useState<SummonerData | null>(null);
   const [matches, setMatches] = useState<MatchData[] | null>(null);
-  const [masteries, setMasteries] = useState<any[] | null>(null);
+  const [masteries, setMasteries] = useState<
+    | { championId: number; championPoints: number; championLevel: number }[]
+    | null
+  >(null);
   const [champDict, setChampDict] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -343,44 +346,57 @@ export default function SummonerStats() {
                 Most Played (Recent)
               </h3>
               <div className="flex flex-col gap-3">
-                {aggregatedStats.topChamps.map(([champName, stats]: any) => {
-                  const winRate = Math.round((stats.wins / stats.games) * 100);
-                  const kda = (
-                    (stats.k + stats.a) /
-                    Math.max(1, stats.d)
-                  ).toFixed(2);
+                {aggregatedStats.topChamps.map(
+                  ([champName, stats]: [
+                    string,
+                    {
+                      wins: number;
+                      games: number;
+                      k: number;
+                      a: number;
+                      d: number;
+                    },
+                  ]) => {
+                    const winRate = Math.round(
+                      (stats.wins / stats.games) * 100,
+                    );
+                    const kda = (
+                      (stats.k + stats.a) /
+                      Math.max(1, stats.d)
+                    ).toFixed(2);
 
-                  return (
-                    <div
-                      key={champName}
-                      className="border-outline-variant/10 flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
-                          className="h-10 w-10 rounded-full"
-                          alt={champName}
-                        />
-                        <div>
-                          <div className="font-bold">{champName}</div>
+                    return (
+                      <div
+                        key={champName}
+                        className="border-outline-variant/10 flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${champName}.png`}
+                            className="h-10 w-10 rounded-full"
+                            alt={champName}
+                          />
+                          <div>
+                            <div className="font-bold">{champName}</div>
+                            <div className="text-on-surface-variant text-xs">
+                              {stats.games} games played
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className={`font-bold ${winRate >= 50 ? 'text-primary' : 'text-error'}`}
+                          >
+                            {winRate}% Win Rate
+                          </div>
                           <div className="text-on-surface-variant text-xs">
-                            {stats.games} games played
+                            {kda} KDA
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div
-                          className={`font-bold ${winRate >= 50 ? 'text-primary' : 'text-error'}`}
-                        >
-                          {winRate}% Win Rate
-                        </div>
-                        <div className="text-on-surface-variant text-xs">
-                          {kda} KDA
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  },
+                )}
               </div>
             </div>
 

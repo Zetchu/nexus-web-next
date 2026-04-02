@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       // Find our specific player in the match
       // Using 'any' here temporarily to avoid massive Riot interface definitions
       const participant = match.info.participants.find(
-        (p: any) => p.puuid === puuid,
+        (p: { puuid: string }) => p.puuid === puuid,
       );
 
       // Push clean, lightweight data to the frontend

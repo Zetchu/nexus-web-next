@@ -82,7 +82,8 @@ export async function GET(request: Request) {
         if (leagueRes.ok) {
           const leagueData = await leagueRes.json();
           const soloQ = leagueData.find(
-            (entry: any) => entry.queueType === 'RANKED_SOLO_5x5',
+            (entry: { queueType: string }) =>
+              entry.queueType === 'RANKED_SOLO_5x5',
           );
 
           if (soloQ) {
