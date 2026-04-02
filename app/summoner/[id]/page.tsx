@@ -8,6 +8,11 @@ import { RecentForm } from '@/components/RecentForm/RecentForm';
 import { MostPlayed } from '@/components/MostPlayed/MostPlayed';
 import { TopMastery } from '@/components/TopMastery/TopMastery';
 
+interface DDragonChamp {
+  key: string;
+  id: string;
+}
+
 export default function SummonerStats() {
   const router = useRouter();
   const params = useParams();
@@ -63,9 +68,9 @@ export default function SummonerStats() {
                 'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
               )
                 .then((res) => res.json())
-                .then((data) => {
+                .then((data: { data: Record<string, DDragonChamp> }) => {
                   const dict: Record<string, string> = {};
-                  Object.values(data.data).forEach((champ: any) => {
+                  Object.values(data.data).forEach((champ) => {
                     dict[champ.key] = champ.id;
                   });
                   setChampDict(dict);
@@ -84,9 +89,11 @@ export default function SummonerStats() {
           const ddragonRes = await fetch(
             'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
           );
-          const ddragonData = await ddragonRes.json();
+          const ddragonData = (await ddragonRes.json()) as {
+            data: Record<string, DDragonChamp>;
+          };
           const dict: Record<string, string> = {};
-          Object.values(ddragonData.data).forEach((champ: any) => {
+          Object.values(ddragonData.data).forEach((champ) => {
             dict[champ.key] = champ.id;
           });
           setChampDict(dict);

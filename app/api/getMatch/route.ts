@@ -122,6 +122,10 @@ export async function GET(request: Request) {
           masteryPoints: 0,
           masteryLevel: 0,
         });
+        console.log(
+          `Failed to fetch ranked/mastery data for player ${player.summonerName}:`,
+          err,
+        );
       }
     }
 
