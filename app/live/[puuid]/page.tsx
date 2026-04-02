@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { LivePlayerCard } from '../../../components/LivePlayerCard';
 import { BanList } from '../../../components/BanList';
@@ -36,6 +36,28 @@ interface LiveMatchData {
   participants: LiveParticipant[];
 }
 
+// --- HELPER: Calculate Team Average Win Rate ---
+const getAvgWinRate = (team: LiveParticipant[]) => {
+  let totalWR = 0;
+  let count = 0;
+
+  team.forEach((player) => {
+    // Only count players who are ranked and have actually played games
+    if (
+      player.tier !== 'UNRANKED' &&
+      player.totalGames &&
+      player.totalGames > 0 &&
+      player.winRate
+    ) {
+      totalWR += player.winRate;
+      count++;
+    }
+  });
+
+  // If the entire team is unranked (or it's a completely fresh season), default to 50%
+  return count > 0 ? Math.round(totalWR / count) : 50;
+};
+
 export default function LiveMatch() {
   const router = useRouter();
   const params = useParams();
@@ -44,6 +66,9 @@ export default function LiveMatch() {
   const [match, setMatch] = useState<LiveMatchData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // NEW: State for the live ticking clock
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const hasFetched = useRef(false);
 
@@ -65,6 +90,8 @@ export default function LiveMatch() {
         if (data.isLive === false) throw new Error(data.message);
 
         setMatch(data);
+        // Initialize our clock with the current game length from the API snapshot
+        setElapsedSeconds(data.gameLength);
       } catch (err: unknown) {
         if (err instanceof Error) {
           setError(err.message);
@@ -78,6 +105,19 @@ export default function LiveMatch() {
 
     fetchLiveMatch();
   }, [puuid]);
+
+  // --- NEW: Live Clock Effect ---
+  useEffect(() => {
+    if (!match) return;
+
+    // Tick the clock up by 1 every 1000ms
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    // Cleanup interval if the user leaves the page
+    return () => clearInterval(interval);
+  }, [match]);
 
   if (loading) {
     return (
@@ -129,7 +169,19 @@ export default function LiveMatch() {
     ) || []
   ).map((b: LiveBan) => b.championName as string);
 
-  const gameMinutes = Math.floor(match.gameLength / 60);
+  // --- Win Predictor Calculations ---
+  const blueWR = getAvgWinRate(blueTeam);
+  const redWR = getAvgWinRate(redTeam);
+  const totalWR = blueWR + redWR;
+
+  // Prevent division by zero if something goes horribly wrong
+  const bluePercent = totalWR > 0 ? Math.round((blueWR / totalWR) * 100) : 50;
+  const redPercent = 100 - bluePercent;
+
+  // --- Clock Formatting (e.g., 65 seconds -> "01:05") ---
+  const displayMinutes = Math.floor(elapsedSeconds / 60);
+  const displaySeconds = elapsedSeconds % 60;
+  const formattedTime = `${displayMinutes}:${displaySeconds.toString().padStart(2, '0')}`;
 
   const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 
@@ -143,19 +195,52 @@ export default function LiveMatch() {
           <span>&larr;</span> Back to Profile
         </button>
         <div className="text-right">
-          <p className="text-error animate-pulse text-xs font-bold tracking-widest uppercase">
-            Live Now
-          </p>
-          <p className="text-on-surface font-display font-bold">
-            {match.gameMode} • {gameMinutes} mins
+          <div className="flex items-center justify-end gap-2">
+            <span className="bg-error h-2 w-2 animate-pulse rounded-full"></span>
+            <p className="text-error text-xs font-bold tracking-widest uppercase">
+              Live Now
+            </p>
+          </div>
+          <p className="text-on-surface font-display text-lg font-bold tabular-nums">
+            {match.gameMode} • {formattedTime}
           </p>
         </div>
       </nav>
 
       <main className="mx-auto max-w-6xl">
+        {/* --- NEW: Win Predictor Bar --- */}
+        <section className="mb-8">
+          <div className="mb-2 flex justify-between px-1">
+            <span className="font-display text-sm font-bold text-blue-400">
+              Blue Team Advantage ({bluePercent}%)
+            </span>
+            <span className="font-display text-sm font-bold text-red-400">
+              Red Team Advantage ({redPercent}%)
+            </span>
+          </div>
+          <div className="bg-surface-lowest ring-outline-variant/20 flex h-4 w-full overflow-hidden rounded-full shadow-inner ring-1">
+            <div
+              className="relative bg-blue-500 transition-all duration-1000 ease-in-out"
+              style={{ width: `${bluePercent}%` }}
+            >
+              {/* Optional: Add a cool sheen effect to the winning side */}
+              {bluePercent > 50 && (
+                <div className="absolute inset-0 bg-linear-to-r from-transparent to-white/20"></div>
+              )}
+            </div>
+            <div
+              className="relative bg-red-500 transition-all duration-1000 ease-in-out"
+              style={{ width: `${redPercent}%` }}
+            >
+              {redPercent > 50 && (
+                <div className="absolute inset-0 bg-linear-to-l from-transparent to-white/20"></div>
+              )}
+            </div>
+          </div>
+        </section>
+
         <BanList blueBans={blueBanNames} redBans={redBanNames} />
 
-        {/* --- NEW FACE-OFF LAYOUT --- */}
         <div className="mt-12 flex flex-col gap-6">
           {/* Header Row (Desktop Only) */}
           <div className="border-outline-variant/20 hidden items-center justify-between border-b px-4 pb-2 lg:flex">
