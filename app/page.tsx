@@ -75,11 +75,11 @@ export default function Home() {
       return;
     }
 
+    // INSTANT NAVIGATION: Let the Summoner page do the heavy lifting
     router.push(
       `/summoner/${encodeURIComponent(gameName)}-${encodeURIComponent(tagLine)}`,
     );
   };
-
   return (
     <div className="bg-surface selection:bg-primary/30 relative isolate overflow-hidden">
       {/* Background Glow */}

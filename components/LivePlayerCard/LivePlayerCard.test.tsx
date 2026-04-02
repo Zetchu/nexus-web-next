@@ -14,7 +14,7 @@ describe('LivePlayerCard Component', () => {
 
     expect(screen.getByText('Faker')).toBeInTheDocument();
 
-    expect(screen.getByText('Ahri')).toBeInTheDocument();
+    expect(screen.getByAltText('Ahri')).toBeInTheDocument();
   });
 
   it('falls back to summonerName if riotId is missing', () => {

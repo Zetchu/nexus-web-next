@@ -1,167 +1,302 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { SummonerData } from '@/app/types';
+import { SummonerData, MatchData } from '@/app/types';
+import { ProfileHeader } from '@/components/ProfileHeader/ProfileHeader';
+import { RecentForm } from '@/components/RecentForm/RecentForm';
+import { MostPlayed } from '@/components/MostPlayed/MostPlayed';
+import { TopMastery } from '@/components/TopMastery/TopMastery';
+
+interface DDragonChamp {
+  key: string;
+  id: string;
+}
 
 export default function SummonerStats() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
+  // Standard safe initialization for Next.js SSR
   const [summoner, setSummoner] = useState<SummonerData | null>(null);
+  const [matches, setMatches] = useState<MatchData[] | null>(null);
+  const [masteries, setMasteries] = useState<
+    | { championId: number; championPoints: number; championLevel: number }[]
+    | null
+  >(null);
+  const [champDict, setChampDict] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     if (!id) return;
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
-    const fetchPlayerData = async () => {
-      setLoading(true);
-      setError('');
-
+    const fetchData = async () => {
       try {
-        const [gName, tLine] = decodeURIComponent(id).split('-');
+        const decodedId = decodeURIComponent(id);
+        const lastHyphenIndex = decodedId.lastIndexOf('-');
+        const gName = decodedId.substring(0, lastHyphenIndex);
+        const tLine = decodedId.substring(lastHyphenIndex + 1);
 
-        const res = await fetch(
+        // 1. CHECK CACHE FIRST (Runs safely on client side)
+        let localDict: Record<string, string> = {};
+        const cachedDict = localStorage.getItem('riot_champ_dict');
+        if (cachedDict) {
+          localDict = JSON.parse(cachedDict);
+          setChampDict(localDict);
+        }
+
+        const cachedData = localStorage.getItem('riot_profile_cache');
+        if (cachedData) {
+          const parsedCache = JSON.parse(cachedData);
+          if (
+            parsedCache.summoner &&
+            parsedCache.summoner.gameName.toLowerCase() ===
+              gName.toLowerCase() &&
+            parsedCache.summoner.tagLine.toLowerCase() === tLine.toLowerCase()
+          ) {
+            setSummoner(parsedCache.summoner);
+            setMatches(parsedCache.matches);
+            setMasteries(parsedCache.masteries);
+
+            if (!cachedDict) {
+              fetch(
+                'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
+              )
+                .then((res) => res.json())
+                .then((data: { data: Record<string, DDragonChamp> }) => {
+                  const dict: Record<string, string> = {};
+                  Object.values(data.data).forEach((champ) => {
+                    dict[champ.key] = champ.id;
+                  });
+                  setChampDict(dict);
+                  localStorage.setItem('riot_champ_dict', JSON.stringify(dict));
+                });
+            }
+
+            // Turn off skeleton instantly
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 2. FALLBACK: Fetch everything from Riot APIs
+        if (!cachedDict) {
+          const ddragonRes = await fetch(
+            'https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json',
+          );
+          const ddragonData = (await ddragonRes.json()) as {
+            data: Record<string, DDragonChamp>;
+          };
+          const dict: Record<string, string> = {};
+          Object.values(ddragonData.data).forEach((champ) => {
+            dict[champ.key] = champ.id;
+          });
+          setChampDict(dict);
+          localStorage.setItem('riot_champ_dict', JSON.stringify(dict));
+        }
+
+        const playerRes = await fetch(
           `/api/getPlayer?gameName=${encodeURIComponent(gName)}&tagLine=${encodeURIComponent(tLine)}`,
         );
-        const data = await res.json();
+        const playerData = await playerRes.json();
+        if (!playerRes.ok)
+          throw new Error(playerData.error || 'Failed to fetch player');
 
-        if (!res.ok)
-          throw new Error(data.error || 'Failed to fetch player data');
+        setSummoner(playerData);
 
-        setSummoner(data);
+        const [matchesRes, masteryRes] = await Promise.all([
+          fetch(`/api/getMatches?puuid=${playerData.puuid}&start=0&count=15`),
+          fetch(`/api/getMastery?puuid=${playerData.puuid}`),
+        ]);
+
+        const newMatches = matchesRes.ok ? await matchesRes.json() : [];
+        const newMasteries = masteryRes.ok ? await masteryRes.json() : [];
+
+        setMatches(newMatches);
+        setMasteries(newMasteries);
+
+        localStorage.setItem(
+          'riot_profile_cache',
+          JSON.stringify({
+            summoner: playerData,
+            matches: newMatches,
+            masteries: newMasteries,
+          }),
+        );
       } catch (err: unknown) {
-        // Correctly type-checking the error here instead of using 'any'
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError(String(err));
-        }
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPlayerData();
+    fetchData();
   }, [id]);
 
-  const totalGames = summoner ? summoner.wins + summoner.losses : 0;
-  const winRate =
-    totalGames > 0 ? Math.round((summoner!.wins / totalGames) * 100) : 0;
+  const aggregatedStats = useMemo(() => {
+    if (!matches || matches.length === 0) return null;
 
-  if (loading) {
+    let wins = 0;
+    let kills = 0,
+      deaths = 0,
+      assists = 0;
+    const champMap: Record<
+      string,
+      { games: number; wins: number; k: number; d: number; a: number }
+    > = {};
+    const roleMap: Record<string, number> = {};
+
+    matches.forEach((match) => {
+      if (match.win) wins++;
+      kills += match.kills;
+      deaths += match.deaths;
+      assists += match.assists;
+
+      const role = match.teamPosition || 'FILL';
+      roleMap[role] = (roleMap[role] || 0) + 1;
+
+      const champ = match.championName;
+      if (!champMap[champ])
+        champMap[champ] = { games: 0, wins: 0, k: 0, d: 0, a: 0 };
+      champMap[champ].games++;
+      if (match.win) champMap[champ].wins++;
+      champMap[champ].k += match.kills;
+      champMap[champ].d += match.deaths;
+      champMap[champ].a += match.assists;
+    });
+
+    return {
+      total: matches.length,
+      wins,
+      losses: matches.length - wins,
+      winRate: Math.round((wins / matches.length) * 100),
+      kda: ((kills + assists) / Math.max(1, deaths)).toFixed(2),
+      avgKills: (kills / matches.length).toFixed(1),
+      avgDeaths: (deaths / matches.length).toFixed(1),
+      avgAssists: (assists / matches.length).toFixed(1),
+      topChamps: Object.entries(champMap)
+        .sort((a, b) => b[1].games - a[1].games)
+        .slice(0, 3),
+      topRoles: Object.entries(roleMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2),
+    };
+  }, [matches]);
+
+  if (loading)
     return (
-      <div className="bg-surface flex min-h-screen flex-col items-center justify-center gap-4">
-        <div className="border-primary h-10 w-10 animate-spin rounded-full border-4 border-t-transparent"></div>
-        <p className="text-on-surface-variant font-body animate-pulse">
-          Scanning Riot Servers...
-        </p>
+      <div className="bg-surface font-body text-on-surface min-h-screen p-6">
+        <nav className="mx-auto mt-4 mb-8 max-w-4xl">
+          <div className="bg-surface-variant h-6 w-32 animate-pulse rounded-md"></div>
+        </nav>
+
+        <main className="mx-auto max-w-4xl space-y-6">
+          <section className="bg-surface-low border-outline-variant/20 flex flex-col items-center gap-6 rounded-2xl border p-8 md:flex-row">
+            <div className="bg-surface-high h-24 w-24 shrink-0 animate-pulse rounded-2xl"></div>
+            <div className="flex flex-1 flex-col items-center gap-3 md:items-start">
+              <div className="bg-surface-high h-10 w-64 animate-pulse rounded-lg"></div>
+              <div className="bg-surface-variant h-5 w-40 animate-pulse rounded-md"></div>
+            </div>
+            <div className="bg-surface-high h-12 w-40 animate-pulse rounded-xl"></div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="bg-surface-low border-outline-variant/20 flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border p-6">
+              <div className="bg-surface-variant h-4 w-24 animate-pulse rounded-md"></div>
+              <div className="bg-surface-high h-32 w-32 animate-pulse rounded-full"></div>
+              <div className="bg-surface-variant mt-2 h-5 w-32 animate-pulse rounded-md"></div>
+            </div>
+
+            <div className="bg-surface-low border-outline-variant/20 h-72 rounded-2xl border p-6 md:col-span-2">
+              <div className="bg-surface-variant mb-6 h-4 w-32 animate-pulse rounded-md"></div>
+              <div className="flex flex-col gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="border-outline-variant/10 flex items-center justify-between border-b pb-3 last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-surface-high h-10 w-10 animate-pulse rounded-full"></div>
+                      <div className="space-y-2">
+                        <div className="bg-surface-high h-4 w-24 animate-pulse rounded-md"></div>
+                        <div className="bg-surface-variant h-3 w-16 animate-pulse rounded-md"></div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end space-y-2">
+                      <div className="bg-surface-high h-4 w-20 animate-pulse rounded-md"></div>
+                      <div className="bg-surface-variant h-3 w-12 animate-pulse rounded-md"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-surface-low border-outline-variant/20 h-48 rounded-2xl border p-6 md:col-span-3">
+              <div className="bg-surface-variant mb-6 h-4 w-40 animate-pulse rounded-md"></div>
+              <div className="grid grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-surface-lowest border-outline-variant/10 flex flex-col items-center gap-2 rounded-xl border p-4"
+                  >
+                    <div className="bg-surface-high h-16 w-16 animate-pulse rounded-lg"></div>
+                    <div className="bg-surface-high h-4 w-20 animate-pulse rounded-md"></div>
+                    <div className="bg-surface-variant h-3 w-16 animate-pulse rounded-md"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
-  }
 
-  if (error || !summoner) {
+  if (error || !summoner)
     return (
-      <div className="bg-surface flex min-h-screen flex-col items-center justify-center p-6 text-center">
-        <div className="bg-error/10 text-error border-error/30 shadow-glow-defeat mb-4 flex h-16 w-16 items-center justify-center rounded-full border text-2xl font-bold">
-          !
-        </div>
-        <h1 className="font-display text-on-surface mb-2 text-2xl font-bold">
-          Summoner Not Found
-        </h1>
-        <p className="text-on-surface-variant mb-6">{error}</p>
-        <button
-          onClick={() => router.push('/')}
-          className="bg-surface-low border-outline-variant/30 text-on-surface hover:bg-surface-high rounded-xl border px-6 py-2 transition-colors"
-        >
-          &larr; Go Back
-        </button>
-      </div>
+      <div className="text-error p-10 text-center">{error || 'Not Found'}</div>
     );
-  }
 
   return (
-    <div className="bg-surface font-body min-h-screen p-6">
-      <nav className="mx-auto mt-4 mb-8 max-w-3xl">
+    <div className="bg-surface font-body text-on-surface min-h-screen p-6">
+      <nav className="mx-auto mt-4 mb-8 max-w-4xl">
         <button
           onClick={() => router.push('/')}
-          className="text-on-surface-variant hover:text-primary flex items-center gap-2 font-medium transition-colors"
+          className="text-on-surface-variant hover:text-primary transition-colors"
         >
-          <span>&larr;</span> Back to Search
+          &larr; Back to Search
         </button>
       </nav>
 
-      <main className="mx-auto max-w-3xl space-y-6">
-        <section className="bg-surface-low shadow-ambient border-outline-variant/20 flex flex-col items-center gap-6 rounded-2xl border p-6 text-center transition-all md:flex-row md:p-8 md:text-left">
-          <div className="relative shrink-0">
-            <div className="bg-surface-high border-outline-variant/50 flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-2 shadow-inner">
-              <img
-                src={`https://ddragon.leagueoflegends.com/cdn/14.6.1/img/profileicon/${summoner.profileIconId}.png`}
-                alt="Profile Icon"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="bg-surface-lowest border-outline/50 text-secondary absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full border px-4 py-1 text-xs font-bold whitespace-nowrap shadow-md">
-              Lvl {summoner.summonerLevel}
-            </div>
-          </div>
+      <main className="mx-auto max-w-4xl space-y-6">
+        {/* 1. Profile Header */}
+        <ProfileHeader summoner={summoner} />
 
-          <div className="flex-1">
-            <h1 className="font-display text-on-surface text-3xl font-bold md:text-4xl">
-              {summoner.gameName}{' '}
-              <span className="text-on-surface-variant/50 text-2xl">
-                #{summoner.tagLine}
-              </span>
-            </h1>
-          </div>
+        {aggregatedStats && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {/* 2. Recent Form */}
+            <RecentForm
+              winRate={aggregatedStats.winRate}
+              wins={aggregatedStats.wins}
+              losses={aggregatedStats.losses}
+              kda={aggregatedStats.kda}
+              avgKills={aggregatedStats.avgKills}
+              avgDeaths={aggregatedStats.avgDeaths}
+              avgAssists={aggregatedStats.avgAssists}
+              topRoles={aggregatedStats.topRoles}
+            />
 
-          <div className="mt-4 w-full md:mt-0 md:w-auto">
-            <button
-              onClick={() => router.push(`/live/${summoner.puuid}`)}
-              className="bg-surface-high border-outline-variant/30 text-on-surface hover:bg-kinetic-gradient hover:text-on-primary-fixed hover:shadow-glow-victory group flex w-full items-center justify-center gap-3 rounded-xl border px-6 py-4 font-bold transition-all duration-300 hover:border-transparent"
-            >
-              <span className="bg-error group-hover:bg-on-primary-fixed h-2.5 w-2.5 animate-pulse rounded-full"></span>
-              Spectate Live Match
-            </button>
-          </div>
-        </section>
+            {/* 3. Most Played */}
+            <MostPlayed topChamps={aggregatedStats.topChamps} />
 
-        <section className="bg-surface-low border-outline-variant/20 flex items-center gap-6 rounded-2xl border p-6">
-          <div className="bg-surface-high flex h-20 w-20 shrink-0 items-center justify-center rounded-full">
-            <span className="text-on-surface-variant text-xs font-bold">
-              {summoner.tier}
-            </span>
+            {/* 4. Top Mastery */}
+            <TopMastery masteries={masteries || []} champDict={champDict} />
           </div>
-
-          <div>
-            <h2 className="font-display text-secondary mb-1 text-sm font-bold tracking-wider uppercase">
-              Ranked Solo/Duo
-            </h2>
-            {summoner.tier === 'UNRANKED' ? (
-              <p className="text-on-surface-variant text-2xl font-bold">
-                Unranked
-              </p>
-            ) : (
-              <>
-                <p className="text-on-surface text-2xl font-bold">
-                  {summoner.tier} {summoner.rank}
-                </p>
-                <p className="text-on-surface-variant mt-1 text-sm font-medium">
-                  {summoner.leaguePoints} LP <span className="mx-2">•</span>{' '}
-                  {summoner.wins}W {summoner.losses}L{' '}
-                  <span className="mx-2">•</span>{' '}
-                  <span
-                    className={winRate >= 50 ? 'text-primary' : 'text-error'}
-                  >
-                    {winRate}% Winrate
-                  </span>
-                </p>
-              </>
-            )}
-          </div>
-        </section>
+        )}
       </main>
     </div>
   );
